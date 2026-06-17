@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Chạy trên server mới nhất của GitHub để lấy hiệu năng CPU cao nhất
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout
@@ -20,67 +20,71 @@ jobs:
         remove-android: 'true'
         remove-haskell: 'true'
 
-    - name: Run Build in Minimal Debian Container
-      uses: docker://debian:buster-slim # Sử dụng bản Debian Slim siêu nhẹ (giống cốt lõi của DietPi)
+    - name: Run Build in Debian Bullseye Container
+      uses: docker://debian:bullseye-slim
       env:
         GITHUB_WORKSPACE: /github/workspace
       with:
         args: |
           bash -c "
-          # 1. Cập nhật hệ thống tối giản
-          apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y sudo curl git openjdk-8-jdk
+          # 1. Cập nhật hệ thống và cài đặt công cụ tải/quản lý mã nguồn
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y sudo curl git openjdk-11-jdk-headless gnupg python3
 
-          # 2. Cài đặt các công cụ biên dịch cần thiết cho Android
-          DEBIAN_FRONTEND=noninteractive apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+          # Tạo liên kết python để lệnh repo chạy không lỗi
+          ln -sf /usr/bin/python3 /usr/bin/python
 
-          # 3. Cài đặt mã nguồn và công cụ Repo
+          # 2. Cài đặt các thư viện thiết yếu để build LineageOS 15.1
+          DEBIAN_FRONTEND=noninteractive apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib gperf imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5 libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+
+          # 3. Cài đặt Repo Tool từ Google
           mkdir -p ~/bin
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
           chmod a+x ~/bin/repo
           ln -sf ~/bin/repo /usr/bin/repo
 
-          # Cấu hình Git
+          # Cấu hình danh tính Git cơ bản
           git config --global user.name 'DietPiBuilder'
           git config --global user.email 'dietpi@builder.local'
 
-          # 4. Khởi tạo mã nguồn LineageOS 15.1
+          # 4. Khởi tạo và chuẩn bị thư mục chứa mã nguồn LineageOS
           mkdir -p ~/android/lineage
           cd ~/android/lineage
           repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
 
-          # 5. Tải các nhánh cây mã nguồn (Trees) cho millet3g
+          # 5. Tải các nhánh cây thiết bị (Trees) của millet3g và chip msm8226
           git clone https://github.com/LineageOS/android_device_samsung_millet3g.git -b lineage-15.1 device/samsung/millet3g
           git clone https://github.com/LineageOS/android_kernel_samsung_msm8226.git -b lineage-15.1 kernel/samsung/msm8226
           git clone https://github.com/TheMuppets/proprietary_vendor_samsung.git -b lineage-15.1 vendor/samsung
 
-          # 6. Tùy chỉnh hệ thống (Navbar ảo)
+          # 6. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
           echo 'qemu.hw.mainkeys=0' >> device/samsung/millet3g/system.prop
 
-          # 7. Thay thế hình nền từ file Wallpaper.png trong repo của bạn
+          # 7. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân
           if [ -f '$GITHUB_WORKSPACE/Wallpaper.png' ]; then
-            echo 'Đang chèn hình nền tùy chỉnh vào hệ thống...'
+            echo 'Đang thay thế hình nền mặc định...'
             cp -f $GITHUB_WORKSPACE/Wallpaper.png frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png
             cp -f $GITHUB_WORKSPACE/Wallpaper.png frameworks/base/core/res/res/drawable-sw600dp-nodpi/default_wallpaper.png
             cp -f $GITHUB_WORKSPACE/Wallpaper.png frameworks/base/core/res/res/drawable-sw720dp-nodpi/default_wallpaper.png
           fi
 
-          # 8. Ép cấu hình Android Go (Low RAM) tiết kiệm bộ nhớ
+          # 8. Thay đổi hệ thống: Cấu hình đưa về bản Android Go mượt nhẹ
           echo 'PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := true' >> device/samsung/millet3g/lineage_millet3g.mk
           echo '\$(call inherit-product, build/make/target/product/go_defaults.mk)' >> device/samsung/millet3g/lineage_millet3g.mk
 
-          # 9. Đồng bộ hóa toàn bộ mã nguồn
-          repo sync -c -j\$(nproc --all) --force-sync --no-clone-bundle --no-tags
+          # 9. Tiến hành đồng bộ hóa dữ liệu toàn bộ các kho mã nguồn
+          repo sync -c --force-sync --no-clone-bundle --no-tags
 
-          # 10. Tiến hành Build ROM
+          # 10. Tiến hành biên dịch hệ điều hành (Build ROM)
           export CCACHE_EXEC=/usr/bin/ccache
           export USE_CCACHE=1
           ccache -M 50G
           source build/envsetup.sh
           lunch lineage_millet3g-userdebug
-          mka bacon -j\$(nproc --all)
+          mka bacon
 
-          # Copy file ROM đầu ra để chuẩn bị gom về GitHub Artifacts
-          cp ~/android/lineage/out/target/product/millet3g/lineage-*.zip $GITHUB_WORKSPACE/
+          # Sao chép file sản phẩm .zip ra ngoài để lưu trữ
+          cp out/target/product/millet3g/lineage-*.zip $GITHUB_WORKSPACE/
           "
 
     - name: Upload ROM to GitHub Artifacts
