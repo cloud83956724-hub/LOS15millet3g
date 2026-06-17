@@ -27,40 +27,42 @@ jobs:
       with:
         args: |
           bash -c "
-          # 1. Cập nhật hệ thống và cài đặt công cụ tải/quản lý mã nguồn
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y sudo curl git openjdk-11-jdk-headless gnupg python3
+          # 1. Cập nhật danh sách gói và đợi hệ thống đồng bộ ổn định
+          apt-get update && sleep 5
 
+          # 2. Cài đặt các công cụ tải dữ liệu cơ bản trước
+          DEBIAN_FRONTEND=noninteractive apt-get install -y curl git python3 sudo gnupg
+          
           # Tạo liên kết python để lệnh repo chạy không lỗi
           ln -sf /usr/bin/python3 /usr/bin/python
 
-          # 2. Cài đặt các thư viện thiết yếu để build LineageOS 15.1
-          DEBIAN_FRONTEND=noninteractive apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib gperf imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5 libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+          # 3. Cài đặt các thư viện thiết yếu để build LineageOS 15.1 (Dùng OpenJDK 8 cho Android 8.1)
+          DEBIAN_FRONTEND=noninteractive apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib gperf imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5 libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev openjdk-8-jdk
 
-          # 3. Cài đặt Repo Tool từ Google
+          # 4. Cài đặt Repo Tool từ Google
           mkdir -p ~/bin
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
           chmod a+x ~/bin/repo
           ln -sf ~/bin/repo /usr/bin/repo
 
-          # Cấu hình danh tính Git cơ bản
+          # Cấu hình danh tính Git cơ bản để không bị chặn khi sync
           git config --global user.name 'DietPiBuilder'
           git config --global user.email 'dietpi@builder.local'
 
-          # 4. Khởi tạo và chuẩn bị thư mục chứa mã nguồn LineageOS
+          # 5. Khởi tạo và chuẩn bị thư mục chứa mã nguồn LineageOS
           mkdir -p ~/android/lineage
           cd ~/android/lineage
           repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
 
-          # 5. Tải các nhánh cây thiết bị (Trees) của millet3g và chip msm8226
+          # 6. Tải các nhánh cây thiết bị (Trees) của millet3g và chip msm8226
           git clone https://github.com/LineageOS/android_device_samsung_millet3g.git -b lineage-15.1 device/samsung/millet3g
           git clone https://github.com/LineageOS/android_kernel_samsung_msm8226.git -b lineage-15.1 kernel/samsung/msm8226
           git clone https://github.com/TheMuppets/proprietary_vendor_samsung.git -b lineage-15.1 vendor/samsung
 
-          # 6. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
+          # 7. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
           echo 'qemu.hw.mainkeys=0' >> device/samsung/millet3g/system.prop
 
-          # 7. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân
+          # 8. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân nếu có
           if [ -f '$GITHUB_WORKSPACE/Wallpaper.png' ]; then
             echo 'Đang thay thế hình nền mặc định...'
             cp -f $GITHUB_WORKSPACE/Wallpaper.png frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png
@@ -68,14 +70,14 @@ jobs:
             cp -f $GITHUB_WORKSPACE/Wallpaper.png frameworks/base/core/res/res/drawable-sw720dp-nodpi/default_wallpaper.png
           fi
 
-          # 8. Thay đổi hệ thống: Cấu hình đưa về bản Android Go mượt nhẹ
+          # 9. Thay đổi hệ thống: Cấu hình đưa về bản Android Go mượt nhẹ
           echo 'PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := true' >> device/samsung/millet3g/lineage_millet3g.mk
           echo '\$(call inherit-product, build/make/target/product/go_defaults.mk)' >> device/samsung/millet3g/lineage_millet3g.mk
 
-          # 9. Tiến hành đồng bộ hóa dữ liệu toàn bộ các kho mã nguồn
+          # 10. Tiến hành đồng bộ hóa dữ liệu toàn bộ các kho mã nguồn
           repo sync -c --force-sync --no-clone-bundle --no-tags
 
-          # 10. Tiến hành biên dịch hệ điều hành (Build ROM)
+          # 11. Tiến hành biên dịch hệ điều hành (Build ROM)
           export CCACHE_EXEC=/usr/bin/ccache
           export USE_CCACHE=1
           ccache -M 50G
