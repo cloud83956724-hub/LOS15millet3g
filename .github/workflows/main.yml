@@ -50,21 +50,22 @@ jobs:
           chmod a+x $GITHUB_WORKSPACE/bin/repo
           ln -sf $GITHUB_WORKSPACE/bin/repo /usr/bin/repo
 
-          # Cấu hình danh tính Git cơ bản
+          # Cấu hình danh tính Git cơ bản và ÉP BUỘC dùng giao thức git:// thay vì https:// để không bị đòi Username
           git config --global user.name 'DietPiBuilder'
           git config --global user.email 'dietpi@builder.local'
+          git config --global url.'git://github.com/'.insteadOf 'https://github.com/'
 
           # 5. Khởi tạo thư mục chứa mã nguồn trong không gian đĩa lớn
           mkdir -p $GITHUB_WORKSPACE/android/lineage
           cd $GITHUB_WORKSPACE/android/lineage
-          repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
+          repo init -u git://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
 
-          # 6. Tải các nhánh cây thiết bị (Trees) từ các kho lưu trữ hoạt động ổn định
-          git clone https://github.com/LineageOS/android_device_samsung_millet3g.git -b lineage-15.1 device/samsung/millet3g
-          git clone https://github.com/msm8226-dev/android_kernel_samsung_msm8226.git -b lineage-15.1 kernel/samsung/msm8226
-          git clone https://github.com/TheMuppets/proprietary_vendor_samsung.git -b lineage-15.1 vendor/samsung
+          # 6. Tải các nhánh cây thiết bị (Trees) sử dụng link git công cộng không cần bảo mật
+          git clone git://github.com/LineageOS/android_device_samsung_millet3g.git -b lineage-15.1 device/samsung/millet3g
+          git clone git://github.com/msm8226-dev/android_kernel_samsung_msm8226.git -b lineage-15.1 kernel/samsung/msm8226
+          git clone git://github.com/TheMuppets/proprietary_vendor_samsung.git -b lineage-15.1 vendor/samsung
 
-          # 7. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn (Đưa lên trước để file xuất hiện)
+          # 7. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn
           repo sync -c --force-sync --no-clone-bundle --no-tags
 
           # 8. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
