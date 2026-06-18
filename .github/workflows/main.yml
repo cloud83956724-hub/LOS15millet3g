@@ -54,20 +54,23 @@ jobs:
           git config --global user.name 'DietPiBuilder'
           git config --global user.email 'dietpi@builder.local'
 
-          # 5. Khởi tạo thư mục chứa mã nguồn NGAY TRONG không gian đĩa lớn ($GITHUB_WORKSPACE)
+          # 5. Khởi tạo thư mục chứa mã nguồn trong không gian đĩa lớn
           mkdir -p $GITHUB_WORKSPACE/android/lineage
           cd $GITHUB_WORKSPACE/android/lineage
           repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
 
-          # 6. Tải các nhánh cây thiết bị (Trees) - Sửa link Kernel sang kho lưu trữ còn hoạt động
+          # 6. Tải các nhánh cây thiết bị (Trees) từ các kho lưu trữ hoạt động ổn định
           git clone https://github.com/LineageOS/android_device_samsung_millet3g.git -b lineage-15.1 device/samsung/millet3g
           git clone https://github.com/msm8226-dev/android_kernel_samsung_msm8226.git -b lineage-15.1 kernel/samsung/msm8226
           git clone https://github.com/TheMuppets/proprietary_vendor_samsung.git -b lineage-15.1 vendor/samsung
 
-          # 7. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
+          # 7. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn (Đưa lên trước để file xuất hiện)
+          repo sync -c --force-sync --no-clone-bundle --no-tags
+
+          # 8. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
           echo 'qemu.hw.mainkeys=0' >> device/samsung/millet3g/system.prop
 
-          # 8. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân
+          # 9. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân nếu bạn đã upload
           if [ -f '$GITHUB_WORKSPACE/Wallpaper.png' ]; then
             echo 'Đang thay thế hình nền mặc định...'
             cp -f $GITHUB_WORKSPACE/Wallpaper.png frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png
@@ -75,12 +78,9 @@ jobs:
             cp -f $GITHUB_WORKSPACE/Wallpaper.png frameworks/base/core/res/res/drawable-sw720dp-nodpi/default_wallpaper.png
           fi
 
-          # 9. Thay đổi hệ thống: Cấu hình đưa về bản Android Go mượt nhẹ
+          # 10. Thay đổi hệ thống: Cấu hình đưa về bản Android Go mượt nhẹ
           echo 'PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := true' >> device/samsung/millet3g/lineage_millet3g.mk
-          echo '\$(call inherit-product, build/make/target/product/go_defaults.mk)' >> device/samsung/millet3g/lineage_millet3g.mk
-
-          # 10. Tiến hành đồng bộ hóa dữ liệu toàn bộ các kho mã nguồn
-          repo sync -c --force-sync --no-clone-bundle --no-tags
+          echo 'include build/make/target/product/go_defaults.mk' >> device/samsung/millet3g/lineage_millet3g.mk
 
           # 11. Tiến hành biên dịch hệ điều hành (Build ROM)
           export CCACHE_EXEC=/usr/bin/ccache
