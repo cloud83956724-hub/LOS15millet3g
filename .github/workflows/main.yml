@@ -50,23 +50,25 @@ jobs:
           chmod a+x $GITHUB_WORKSPACE/bin/repo
           ln -sf $GITHUB_WORKSPACE/bin/repo /usr/bin/repo
 
-          # Cấu hình danh tính Git cơ bản và ÉP BUỘC dùng giao thức git:// thay vì https:// để không bị đòi Username
+          # Cấu hình danh tính Git cơ bản ổn định cho môi trường tự động
           git config --global user.name 'DietPiBuilder'
           git config --global user.email 'dietpi@builder.local'
-          git config --global url.'git://github.com/'.insteadOf 'https://github.com/'
+          
+          # Hủy bỏ ép cấu hình git:// cũ để tránh bị chặn kết nối
+          git config --global --unset url.'git://github.com/'.insteadOf || true
 
-          # 5. Khởi tạo thư mục chứa mã nguồn trong không gian đĩa lớn
+          # 5. Khởi tạo thư mục chứa mã nguồn trong không gian đĩa lớn bằng giao diện HTTPS chuẩn bảo mật
           mkdir -p $GITHUB_WORKSPACE/android/lineage
           cd $GITHUB_WORKSPACE/android/lineage
-          repo init -u git://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
+          repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
 
-          # 6. Tải các nhánh cây thiết bị (Trees) sử dụng link git công cộng không cần bảo mật
-          git clone git://github.com/LineageOS/android_device_samsung_millet3g.git -b lineage-15.1 device/samsung/millet3g
-          git clone git://github.com/msm8226-dev/android_kernel_samsung_msm8226.git -b lineage-15.1 kernel/samsung/msm8226
-          git clone git://github.com/TheMuppets/proprietary_vendor_samsung.git -b lineage-15.1 vendor/samsung
+          # 6. Tải các nhánh cây thiết bị (Trees) sử dụng HTTPS không yêu cầu chứng chỉ xác thực phức tạp
+          git clone https://github.com/LineageOS/android_device_samsung_millet3g.git -b lineage-15.1 device/samsung/millet3g
+          git clone https://github.com/msm8226-dev/android_kernel_samsung_msm8226.git -b lineage-15.1 kernel/samsung/msm8226
+          git clone https://github.com/TheMuppets/proprietary_vendor_samsung.git -b lineage-15.1 vendor/samsung
 
           # 7. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn
-          repo sync -c --force-sync --no-clone-bundle --no-tags
+          repo sync -c --force-sync --no-clone-bundle --no-tags -j$(nproc --all)
 
           # 8. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
           echo 'qemu.hw.mainkeys=0' >> device/samsung/millet3g/system.prop
@@ -89,7 +91,7 @@ jobs:
           ccache -M 50G
           source build/envsetup.sh
           lunch lineage_millet3g-userdebug
-          mka bacon
+          mka bacon -j$(nproc --all)
 
           # Sao chép file sản phẩm .zip ra ngoài để lưu trữ
           cp out/target/product/millet3g/lineage-*.zip $GITHUB_WORKSPACE/
