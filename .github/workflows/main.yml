@@ -40,37 +40,37 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y temurin-8-jdk
 
-          # Ghi đè biến môi trường cố định vào hệ thống (Dùng kiểu an toàn tuyệt đối)
+          # Ghi đè biến môi trường cố định vào hệ thống (Sử dụng cách ghi thô an toàn cho Docker)
           cat << 'EOF' >> ~/.bashrc
           export JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64
-          export PATH=$JAVA_HOME/bin:$PATH
+          export PATH=/usr/lib/jvm/temurin-8-jdk-amd64/bin:$PATH
           export CCACHE_EXEC=/usr/bin/ccache
           export USE_CCACHE=1
           EOF
-          source ~/.bashrc
+          . ~/.bashrc
 
           # 3. Cài đặt các thư viện thiết yếu để build ROM
           DEBIAN_FRONTEND=noninteractive apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib gperf imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5 libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
 
-          # 4. Cài đặt Repo Tool từ Google và SỬA LỖI BẢO MẬT PHÂN QUYỀN GIT
-          mkdir -p \$GITHUB_WORKSPACE/bin
-          curl https://storage.googleapis.com/git-repo-downloads/repo > \$GITHUB_WORKSPACE/bin/repo
-          chmod a+x \$GITHUB_WORKSPACE/bin/repo
-          ln -sf \$GITHUB_WORKSPACE/bin/repo /usr/bin/repo
+          # 4. Cài đặt Repo Tool từ Google và sửa lỗi phân quyền Git
+          mkdir -p /github/workspace/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > /github/workspace/bin/repo
+          chmod a+x /github/workspace/bin/repo
+          ln -sf /github/workspace/bin/repo /usr/bin/repo
 
-          # Cấu hình danh tính Git và bỏ qua kiểm tra quyền sở hữu thư mục (Fix triệt để lỗi doubtful ownership)
+          # Cấu hình danh tính Git và bỏ qua kiểm tra quyền sở hữu thư mục
           git config --global user.name 'DietPiBuilder'
           git config --global user.email 'dietpi@builder.local'
           git config --global --add safe.directory '*'
 
           # 5. Khởi tạo thư mục chứa mã nguồn LineageOS bằng đường dẫn tuyệt đối
-          mkdir -p \$GITHUB_WORKSPACE/android/lineage
-          cd \$GITHUB_WORKSPACE/android/lineage
+          mkdir -p /github/workspace/android/lineage
+          cd /github/workspace/android/lineage
           repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
 
-          # 6. Tạo file cấu hình local_manifests bằng đường dẫn tuyệt đối cố định
-          mkdir -p \$GITHUB_WORKSPACE/android/lineage/.repo/local_manifests
-          cat <<'EOF' > \$GITHUB_WORKSPACE/android/lineage/.repo/local_manifests/millet3g.xml
+          # 6. Tạo file cấu hình local_manifests tải cây thiết bị tự động (Đã làm sạch cú pháp)
+          mkdir -p /github/workspace/android/lineage/.repo/local_manifests
+          cat << 'EOF' > /github/workspace/android/lineage/.repo/local_manifests/millet3g.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
             <project path="device/samsung/millet3g" name="LineageOS/android_device_samsung_millet3g" remote="github" revision="lineage-15.1" />
@@ -80,32 +80,32 @@ jobs:
           EOF
 
           # 7. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn
-          repo sync -c --force-sync --no-clone-bundle --no-tags -j\$(nproc --all)
+          repo sync -c --force-sync --no-clone-bundle --no-tags -j$(nproc --all)
 
           # 8. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
-          echo 'qemu.hw.mainkeys=0' >> \$GITHUB_WORKSPACE/android/lineage/device/samsung/millet3g/system.prop
+          echo 'qemu.hw.mainkeys=0' >> /github/workspace/android/lineage/device/samsung/millet3g/system.prop
 
           # 9. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân nếu bạn đã upload
-          if [ -f '\$GITHUB_WORKSPACE/Wallpaper.png' ]; then
+          if [ -f '/github/workspace/Wallpaper.png' ]; then
             echo 'Đang thay thế hình nền mặc định...'
-            cp -f \$GITHUB_WORKSPACE/Wallpaper.png \$GITHUB_WORKSPACE/android/lineage/frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png
-            cp -f \$GITHUB_WORKSPACE/Wallpaper.png \$GITHUB_WORKSPACE/android/lineage/frameworks/base/core/res/res/drawable-sw600dp-nodpi/default_wallpaper.png
-            cp -f \$GITHUB_WORKSPACE/Wallpaper.png \$GITHUB_WORKSPACE/android/lineage/frameworks/base/core/res/res/drawable-sw720dp-nodpi/default_wallpaper.png
+            cp -f /github/workspace/Wallpaper.png /github/workspace/android/lineage/frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png
+            cp -f /github/workspace/Wallpaper.png /github/workspace/android/lineage/frameworks/base/core/res/res/drawable-sw600dp-nodpi/default_wallpaper.png
+            cp -f /github/workspace/Wallpaper.png /github/workspace/android/lineage/frameworks/base/core/res/res/drawable-sw720dp-nodpi/default_wallpaper.png
           fi
 
           # 10. Thay đổi hệ thống: Cấu hình đưa về bản Android Go mượt nhẹ
-          echo 'PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := true' >> \$GITHUB_WORKSPACE/android/lineage/device/samsung/millet3g/lineage_millet3g.mk
-          echo 'include build/make/target/product/go_defaults.mk' >> \$GITHUB_WORKSPACE/android/lineage/device/samsung/millet3g/lineage_millet3g.mk
+          echo 'PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := true' >> /github/workspace/android/lineage/device/samsung/millet3g/lineage_millet3g.mk
+          echo 'include build/make/target/product/go_defaults.mk' >> /github/workspace/android/lineage/device/samsung/millet3g/lineage_millet3g.mk
 
           # 11. Tiến hành biên dịch hệ điều hành (Build ROM)
-          source ~/.bashrc
+          . ~/.bashrc
           ccache -M 50G
           source build/envsetup.sh
           lunch lineage_millet3g-userdebug
-          mka bacon -j\$(nproc --all)
+          mka bacon -j$(nproc --all)
 
           # Sao chép file sản phẩm .zip ra ngoài để lưu trữ
-          cp out/target/product/millet3g/lineage-*.zip \$GITHUB_WORKSPACE/
+          cp out/target/product/millet3g/lineage-*.zip /github/workspace/
           "
 
     - name: Upload ROM to GitHub Artifacts
