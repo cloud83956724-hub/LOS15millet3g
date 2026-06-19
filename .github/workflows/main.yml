@@ -40,11 +40,8 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y temurin-8-jdk
 
-          # Ghi đè biến môi trường cố định vào hệ thống
-          echo 'export JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64' >> ~/.bashrc
-          echo 'export PATH=/usr/lib/jvm/temurin-8-jdk-amd64/bin:\$PATH' >> ~/.bashrc
-          echo 'export CCACHE_EXEC=/usr/bin/ccache' >> ~/.bashrc
-          echo 'export USE_CCACHE=1' >> ~/.bashrc
+          # Sử dụng cách ghi file an toàn tuyệt đối cho Docker Environment
+          printf '\nexport JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64\nexport PATH=\$JAVA_HOME/bin:\$PATH\nexport CCACHE_EXEC=/usr/bin/ccache\nexport USE_CCACHE=1\n' >> ~/.bashrc
           source ~/.bashrc
 
           # 3. Cài đặt các thư viện thiết yếu để build ROM
@@ -65,9 +62,9 @@ jobs:
           cd \$GITHUB_WORKSPACE/android/lineage
           repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
 
-          # 6. Tạo file cấu hình local_manifests bằng ĐƯỜNG DẪN TUYỆT ĐỐI cố định
+          # 6. Tạo file cấu hình local_manifests bằng đường dẫn tuyệt đối cố định
           mkdir -p \$GITHUB_WORKSPACE/android/lineage/.repo/local_manifests
-          cat <<EOF > \$GITHUB_WORKSPACE/android/lineage/.repo/local_manifests/millet3g.xml
+          cat <<'EOF' > \$GITHUB_WORKSPACE/android/lineage/.repo/local_manifests/millet3g.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
             <project path="device/samsung/millet3g" name="LineageOS/android_device_samsung_millet3g" remote="github" revision="lineage-15.1" />
