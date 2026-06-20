@@ -40,7 +40,7 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y temurin-8-jdk
 
-          # Ghi đè biến môi trường cố định vào hệ thống (Sử dụng cách ghi thô an toàn cho Docker)
+          # Ghi đè biến môi trường cố định vào hệ thống
           cat << 'EOF' >> ~/.bashrc
           export JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64
           export PATH=/usr/lib/jvm/temurin-8-jdk-amd64/bin:$PATH
@@ -63,14 +63,8 @@ jobs:
           git config --global user.email 'dietpi@builder.local'
           git config --global --add safe.directory '*'
 
-          # 5. Khởi tạo thư mục chứa mã nguồn LineageOS bằng đường dẫn tuyệt đối
-          mkdir -p /github/workspace/android/lineage
-          cd /github/workspace/android/lineage
-          repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
-
-          # 6. Tạo file cấu hình local_manifests tải cây thiết bị tự động (Đã làm sạch cú pháp)
-          mkdir -p /github/workspace/android/lineage/.repo/local_manifests
-          cat << 'EOF' > /github/workspace/android/lineage/.repo/local_manifests/millet3g.xml
+          # 5. Khởi tạo file manifest tạm ở ngoài để tránh lỗi đồng bộ ổ đĩa Docker
+          cat << 'EOF' > /github/workspace/millet3g.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
             <project path="device/samsung/millet3g" name="LineageOS/android_device_samsung_millet3g" remote="github" revision="lineage-15.1" />
@@ -79,13 +73,22 @@ jobs:
           </manifest>
           EOF
 
-          # 7. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn
+          # 6. Khởi tạo thư mục chứa mã nguồn LineageOS
+          mkdir -p /github/workspace/android/lineage
+          cd /github/workspace/android/lineage
+          repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
+
+          # 7. Di chuyển file cấu hình vào đúng vị trí sau khi repo init đã mở thư mục ẩn
+          mkdir -p /github/workspace/android/lineage/.repo/local_manifests
+          cp -f /github/workspace/millet3g.xml /github/workspace/android/lineage/.repo/local_manifests/millet3g.xml
+
+          # 8. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn
           repo sync -c --force-sync --no-clone-bundle --no-tags -j$(nproc --all)
 
-          # 8. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
+          # 9. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
           echo 'qemu.hw.mainkeys=0' >> /github/workspace/android/lineage/device/samsung/millet3g/system.prop
 
-          # 9. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân nếu bạn đã upload
+          # 10. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân nếu bạn đã upload
           if [ -f '/github/workspace/Wallpaper.png' ]; then
             echo 'Đang thay thế hình nền mặc định...'
             cp -f /github/workspace/Wallpaper.png /github/workspace/android/lineage/frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png
@@ -93,11 +96,11 @@ jobs:
             cp -f /github/workspace/Wallpaper.png /github/workspace/android/lineage/frameworks/base/core/res/res/drawable-sw720dp-nodpi/default_wallpaper.png
           fi
 
-          # 10. Thay đổi hệ thống: Cấu hình đưa về bản Android Go mượt nhẹ
+          # 11. Thay đổi hệ thống: Cấu hình đưa về bản Android Go mượt nhẹ
           echo 'PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := true' >> /github/workspace/android/lineage/device/samsung/millet3g/lineage_millet3g.mk
           echo 'include build/make/target/product/go_defaults.mk' >> /github/workspace/android/lineage/device/samsung/millet3g/lineage_millet3g.mk
 
-          # 11. Tiến hành biên dịch hệ điều hành (Build ROM)
+          # 12. Tiến hành biên dịch hệ điều hành (Build ROM)
           . ~/.bashrc
           ccache -M 50G
           source build/envsetup.sh
