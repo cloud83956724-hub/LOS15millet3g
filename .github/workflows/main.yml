@@ -34,7 +34,7 @@ jobs:
           # Tạo liên kết python để lệnh repo chạy không lỗi
           ln -sf /usr/bin/python3 /usr/bin/python
 
-          # TẠO LỆNH SUDO GIẢ: Giải quyết triệt để lỗi 'sudo: command not found' trong Docker root
+          # Tạo lệnh sudo giả để tránh lỗi phân quyền trong Docker root
           echo '#!/bin/sh' > /usr/bin/sudo
           echo '\"\$@\"' >> /usr/bin/sudo
           chmod +x /usr/bin/sudo
@@ -68,10 +68,14 @@ jobs:
           git config --global user.email 'dietpi@builder.local'
           git config --global --add safe.directory '*'
 
-          # 5. Tạo file manifest tạm ở ngoài để tránh lỗi trễ ổ đĩa Docker
+          # 5. Tạo file manifest tạm và vá lỗi các kho CyanogenMod đã bị xóa (Bổ sung kịch bản thế chỗ)
           cat << 'EOF' > /github/workspace/millet3g.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
+            <remove-project name="CyanogenMod/android_external_v8" />
+            
+            <project path="external/v8" name="platform/external/v8" remote="aosp" revision="refs/tags/android-8.1.0_r81" />
+
             <project path="device/samsung/millet3g" name="LineageOS/android_device_samsung_millet3g" remote="github" revision="lineage-15.1" />
             <project path="kernel/samsung/msm8226" name="msm8226-dev/android_kernel_samsung_msm8226" remote="github" revision="lineage-15.1" />
             <project path="vendor/samsung" name="TheMuppets/proprietary_vendor_samsung" remote="github" revision="lineage-15.1" />
