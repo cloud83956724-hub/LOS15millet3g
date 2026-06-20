@@ -35,10 +35,32 @@ jobs:
           curl git python3 python-is-python3 sudo gnupg wget \
           software-properties-common procps ccache bc bison \
           build-essential flex g++-multilib gcc-multilib gperf \
-          imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev \
-          liblz4-tool libncurses5 libncurses5-dev libssl-dev \
+          imagemagick lib32readline-dev lib32z1-dev \
+          liblz4-tool libssl-dev \
           libxml2 libxml2-utils lzop pngcrush rsync schedtool \
           squashfs-tools xsltproc zip zlib1g-dev
+
+    - name: Cài libncurses5/lib32ncurses-dev (đã bị bỏ khỏi Ubuntu Noble, lấy thủ công từ kho Focal)
+      run: |
+        # Ubuntu 24.04 (Noble) không còn libncurses5/libncurses5-dev/lib32ncurses-dev
+        # trong repo mặc định, nhưng các prebuilt binary cũ của AOSP/LineageOS 15.1
+        # (aapt, dex2oat...) cần thư viện .so.5 này để chạy. Tải trực tiếp .deb từ
+        # kho lưu trữ Focal (20.04) và cài bằng dpkg, bỏ qua phần phụ thuộc thiếu.
+        cd /tmp
+        BASE="http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses"
+        wget -q "$BASE/libtinfo5_6.2-0ubuntu2_amd64.deb"
+        wget -q "$BASE/libncurses5_6.2-0ubuntu2_amd64.deb"
+        wget -q "$BASE/libtinfo5_6.2-0ubuntu2_i386.deb"
+        wget -q "$BASE/libncurses5_6.2-0ubuntu2_i386.deb"
+        sudo dpkg -i --force-architecture libtinfo5_6.2-0ubuntu2_amd64.deb || true
+        sudo dpkg -i --force-architecture libncurses5_6.2-0ubuntu2_amd64.deb || true
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo dpkg -i --force-architecture libtinfo5_6.2-0ubuntu2_i386.deb || true
+        sudo dpkg -i --force-architecture libncurses5_6.2-0ubuntu2_i386.deb || true
+        sudo apt-get install -y -f
+        # lib32ncurses-dev cũng không còn -> cài bản 64-bit dev tương đương cho header
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libncurses-dev:i386 libncurses-dev || true
 
     - name: Cài đặt OpenJDK 8 (Adoptium/Temurin)
       run: |
