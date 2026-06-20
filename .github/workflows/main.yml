@@ -27,12 +27,17 @@ jobs:
       with:
         args: |
           bash -c "
-          # 1. Cập nhật hệ thống và cài đặt các gói công cụ cơ bản
+          # 1. Cập nhật hệ thống và cài đặt công cụ cơ bản
           apt-get update && sleep 3
-          DEBIAN_FRONTEND=noninteractive apt-get install -y curl git python3 sudo gnupg wget software-properties-common procps
+          DEBIAN_FRONTEND=noninteractive apt-get install -y curl git python3 gnupg wget software-properties-common procps
 
           # Tạo liên kết python để lệnh repo chạy không lỗi
           ln -sf /usr/bin/python3 /usr/bin/python
+
+          # TẠO LỆNH SUDO GIẢ: Giải quyết triệt để lỗi 'sudo: command not found' trong Docker root
+          echo '#!/bin/sh' > /usr/bin/sudo
+          echo '\"\$@\"' >> /usr/bin/sudo
+          chmod +x /usr/bin/sudo
 
           # 2. Thêm kho lưu trữ và cài đặt OpenJDK 8
           wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | apt-key add -
@@ -52,18 +57,18 @@ jobs:
           # 3. Cài đặt các thư viện thiết yếu để build ROM
           DEBIAN_FRONTEND=noninteractive apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib gperf imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5 libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
 
-          # 4. Cài đặt Repo Tool từ Google và sửa lỗi phân quyền Git
+          # 4. Cài đặt Repo Tool và cấu hình bảo mật Git
           mkdir -p /github/workspace/bin
           curl https://storage.googleapis.com/git-repo-downloads/repo > /github/workspace/bin/repo
           chmod a+x /github/workspace/bin/repo
           ln -sf /github/workspace/bin/repo /usr/bin/repo
 
-          # Cấu hình danh tính Git và bỏ qua kiểm tra quyền sở hữu thư mục
+          # Cấu hình danh tính Git và bỏ qua kiểm tra sở hữu thư mục
           git config --global user.name 'DietPiBuilder'
           git config --global user.email 'dietpi@builder.local'
           git config --global --add safe.directory '*'
 
-          # 5. Khởi tạo file manifest tạm ở ngoài để tránh lỗi đồng bộ ổ đĩa Docker
+          # 5. Tạo file manifest tạm ở ngoài để tránh lỗi trễ ổ đĩa Docker
           cat << 'EOF' > /github/workspace/millet3g.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
@@ -78,7 +83,7 @@ jobs:
           cd /github/workspace/android/lineage
           repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
 
-          # 7. Di chuyển file cấu hình vào đúng vị trí sau khi repo init đã mở thư mục ẩn
+          # 7. Di chuyển file cấu hình vào đúng vị trí
           mkdir -p /github/workspace/android/lineage/.repo/local_manifests
           cp -f /github/workspace/millet3g.xml /github/workspace/android/lineage/.repo/local_manifests/millet3g.xml
 
@@ -88,7 +93,7 @@ jobs:
           # 9. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
           echo 'qemu.hw.mainkeys=0' >> /github/workspace/android/lineage/device/samsung/millet3g/system.prop
 
-          # 10. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân nếu bạn đã upload
+          # 10. Thay đổi hệ thống: Chèn hình nền Wallpaper.png cá nhân nếu có
           if [ -f '/github/workspace/Wallpaper.png' ]; then
             echo 'Đang thay thế hình nền mặc định...'
             cp -f /github/workspace/Wallpaper.png /github/workspace/android/lineage/frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png
