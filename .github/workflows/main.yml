@@ -63,12 +63,15 @@ jobs:
           chmod a+x /github/workspace/bin/repo
           ln -sf /github/workspace/bin/repo /usr/bin/repo
 
-          # Cấu hình danh tính Git và bỏ qua kiểm tra sở hữu thư mục
+          # Cấu hình danh tính Git và tối ưu hóa bộ nhớ đệm Git để tải file lớn không bị ngắt
           git config --global user.name 'DietPiBuilder'
           git config --global user.email 'dietpi@builder.local'
           git config --global --add safe.directory '*'
+          git config --global http.postBuffer 524288000
+          git config --global https.postBuffer 524288000
+          git config --global core.compression 9
 
-          # 5. Tạo file manifest phụ chứa cây thiết bị millet3g (Đổi revision sang cm-15.1 cho đồng bộ)
+          # 5. Tạo file manifest phụ chứa cây thiết bị millet3g
           cat << 'EOF' > /github/workspace/millet3g.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
@@ -81,16 +84,19 @@ jobs:
           # 6. Khởi tạo thư mục chứa mã nguồn LineageOS
           mkdir -p /github/workspace/android/lineage
           cd /github/workspace/android/lineage
-          
-          # ĐÚNG NHÁNH: Đổi sang nhánh -b cm-15.1 phù hợp cấu trúc kho lưu trữ cộng đồng
           repo init -u https://github.com/LineageOS-Revived/android.git -b cm-15.1 --git-lfs --depth=1
 
           # 7. Di chuyển file cấu hình millet3g vào đúng vị trí sau khi init
           mkdir -p .repo/local_manifests
           cp -f /github/workspace/millet3g.xml .repo/local_manifests/millet3g.xml
 
-          # 8. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn
-          repo sync -c -f --force-sync --no-clone-bundle --no-tags -j$(nproc --all)
+          # 8. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn (Giảm luồng tải xuống -j2 để tránh bị chặn IP)
+          echo 'Bắt đầu quá trình tải mã nguồn tối ưu luồng...'
+          repo sync -c -f --force-sync --no-clone-bundle --no-tags --current-branch -j2 || {
+            echo 'Lần sync thứ nhất bị nghẽn nhẹ, đang kích hoạt chế độ tải dự phòng đơn luồng...'
+            sleep 10
+            repo sync -c -f --force-sync --no-clone-bundle --no-tags --current-branch -j1
+          }
 
           # 9. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
           echo 'qemu.hw.mainkeys=0' >> /github/workspace/android/lineage/device/samsung/millet3g/system.prop
