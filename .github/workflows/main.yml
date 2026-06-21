@@ -68,7 +68,7 @@ jobs:
           git config --global user.email 'dietpi@builder.local'
           git config --global --add safe.directory '*'
 
-          # 5. Tạo file manifest phụ chứa cây thiết bị (Đã tinh giản tối đa)
+          # 5. Tạo file manifest phụ chứa cây thiết bị millet3g
           cat << 'EOF' > /github/workspace/millet3g.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
@@ -81,21 +81,15 @@ jobs:
           # 6. Khởi tạo thư mục chứa mã nguồn LineageOS
           mkdir -p /github/workspace/android/lineage
           cd /github/workspace/android/lineage
-          repo init -u https://github.com/LineageOS/android.git -b lineage-15.1 --git-lfs --depth=1
+          
+          # ĐỔI TUYẾN ĐƯỜNG: Sử dụng manifest từ kho lưu trữ nguyên vẹn LineageOS-Revived để tránh link chết
+          repo init -u https://github.com/LineageOS-Revived/android.git -b lineage-15.1 --git-lfs --depth=1
 
-          # 7. ĐƯỜNG B: DÙNG SED ĐỂ XÓA BỎ PROJECT LỖI TRONG MANIFEST GỐC
-          # Lệnh này tìm đến dòng chứa android_external_v8 trong file manifest chính và xóa hẳn nó đi
-          if [ -f .repo/manifest.xml ]; then
-            sed -i '/android_external_v8/d' .repo/manifest.xml
-            sed -i '/android_external_v8/d' .repo/manifests/default.xml 2>/dev/null || true
-            echo 'Đã xóa bỏ dự án lỗi v8 khỏi manifest gốc thành công!'
-          fi
-
-          # Di chuyển file cấu hình millet3g vào đúng vị trí
+          # 7. Di chuyển file cấu hình millet3g vào đúng vị trí sau khi init
           mkdir -p .repo/local_manifests
           cp -f /github/workspace/millet3g.xml .repo/local_manifests/millet3g.xml
 
-          # 8. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn (-f để bỏ qua lỗi nhỏ nếu có)
+          # 8. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn (Thêm tham số ép tải)
           repo sync -c -f --force-sync --no-clone-bundle --no-tags -j$(nproc --all)
 
           # 9. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
