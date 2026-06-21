@@ -51,6 +51,8 @@ jobs:
           export PATH=/usr/lib/jvm/temurin-8-jdk-amd64/bin:$PATH
           export CCACHE_EXEC=/usr/bin/ccache
           export USE_CCACHE=1
+          # ÉP REPO TOOL SỬ DỤNG TRẠM MIRROR THANH HOA ĐỂ TRÁNH LỖI MẠNG GOOGLE
+          export REPO_URL='https://mirrors.tuna.tsinghua.edu.cn/git/git-repo'
           EOF
           . ~/.bashrc
 
@@ -59,17 +61,16 @@ jobs:
 
           # 4. Cài đặt Repo Tool và cấu hình bảo mật Git
           mkdir -p /github/workspace/bin
-          curl https://storage.googleapis.com/git-repo-downloads/repo > /github/workspace/bin/repo
+          curl https://mirrors.tuna.tsinghua.edu.cn/git/git-repo > /github/workspace/bin/repo
           chmod a+x /github/workspace/bin/repo
           ln -sf /github/workspace/bin/repo /usr/bin/repo
 
-          # Cấu hình danh tính Git và tối ưu hóa bộ nhớ đệm Git để tải file lớn không bị ngắt
+          # Cấu hình danh tính Git tối ưu
           git config --global user.name 'DietPiBuilder'
           git config --global user.email 'dietpi@builder.local'
           git config --global --add safe.directory '*'
           git config --global http.postBuffer 524288000
           git config --global https.postBuffer 524288000
-          git config --global core.compression 9
 
           # 5. Tạo file manifest phụ chứa cây thiết bị millet3g
           cat << 'EOF' > /github/workspace/millet3g.xml
@@ -84,19 +85,17 @@ jobs:
           # 6. Khởi tạo thư mục chứa mã nguồn LineageOS
           mkdir -p /github/workspace/android/lineage
           cd /github/workspace/android/lineage
-          repo init -u https://github.com/LineageOS-Revived/android.git -b cm-15.1 --git-lfs --depth=1
+          
+          # ĐƯỜNG C: Khởi tạo thông qua Mirror Thanh Hoa để giải quyết triệt để lỗi nghẽn IP của Google
+          repo init -u https://mirrors.tuna.tsinghua.edu.cn/git/lineage/android.git -b lineage-15.1 --depth=1
 
           # 7. Di chuyển file cấu hình millet3g vào đúng vị trí sau khi init
           mkdir -p .repo/local_manifests
           cp -f /github/workspace/millet3g.xml .repo/local_manifests/millet3g.xml
 
-          # 8. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn (Giảm luồng tải xuống -j2 để tránh bị chặn IP)
-          echo 'Bắt đầu quá trình tải mã nguồn tối ưu luồng...'
-          repo sync -c -f --force-sync --no-clone-bundle --no-tags --current-branch -j2 || {
-            echo 'Lần sync thứ nhất bị nghẽn nhẹ, đang kích hoạt chế độ tải dự phòng đơn luồng...'
-            sleep 10
-            repo sync -c -f --force-sync --no-clone-bundle --no-tags --current-branch -j1
-          }
+          # 8. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn (Chạy luồng tải -j4 cực nhanh trên server mới)
+          echo 'Bắt đầu quá trình tải mã nguồn từ trạm Mirror siêu tốc...'
+          repo sync -c -f --force-sync --no-clone-bundle --no-tags --current-branch -j4
 
           # 9. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
           echo 'qemu.hw.mainkeys=0' >> /github/workspace/android/lineage/device/samsung/millet3g/system.prop
