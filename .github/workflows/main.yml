@@ -68,7 +68,7 @@ jobs:
           git config --global user.email 'dietpi@builder.local'
           git config --global --add safe.directory '*'
 
-          # 5. Tạo file manifest phụ chứa cây thiết bị millet3g
+          # 5. Tạo file manifest phụ chứa cây thiết bị millet3g (Đổi revision sang cm-15.1 cho đồng bộ)
           cat << 'EOF' > /github/workspace/millet3g.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
@@ -82,14 +82,14 @@ jobs:
           mkdir -p /github/workspace/android/lineage
           cd /github/workspace/android/lineage
           
-          # ĐỔI TUYẾN ĐƯỜNG: Sử dụng manifest từ kho lưu trữ nguyên vẹn LineageOS-Revived để tránh link chết
-          repo init -u https://github.com/LineageOS-Revived/android.git -b lineage-15.1 --git-lfs --depth=1
+          # ĐÚNG NHÁNH: Đổi sang nhánh -b cm-15.1 phù hợp cấu trúc kho lưu trữ cộng đồng
+          repo init -u https://github.com/LineageOS-Revived/android.git -b cm-15.1 --git-lfs --depth=1
 
           # 7. Di chuyển file cấu hình millet3g vào đúng vị trí sau khi init
           mkdir -p .repo/local_manifests
           cp -f /github/workspace/millet3g.xml .repo/local_manifests/millet3g.xml
 
-          # 8. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn (Thêm tham số ép tải)
+          # 8. Tiến hành đồng bộ hóa dữ liệu toàn bộ kho mã nguồn
           repo sync -c -f --force-sync --no-clone-bundle --no-tags -j$(nproc --all)
 
           # 9. Thay đổi hệ thống: Kích hoạt phím điều hướng ảo màn hình (Navbar)
